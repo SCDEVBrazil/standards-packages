@@ -1,0 +1,76 @@
+{
+  "name": "@scdevbrazil/instant-nav",
+  "version": "1.0.0",
+  "description": "Checks, measurement and Playwright helpers for the perf-instant-nav standard: every navigation paints its shell at once and streams the data behind it",
+  "type": "module",
+  "bin": {
+    "instant-nav": "./dist/cli.js"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./playwright": {
+      "types": "./dist/playwright.d.ts",
+      "default": "./dist/playwright.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "LICENSE",
+    "README.md"
+  ],
+  "sideEffects": false,
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "lint": "tsc --noEmit",
+    "test": "vitest",
+    "test:run": "vitest run"
+  },
+  "dependencies": {
+    "typescript": "5.9.3"
+  },
+  "peerDependencies": {
+    "@next/playwright": ">=16.3.0 <17",
+    "@playwright/test": ">=1.50.0",
+    "next": ">=16.3.0 <17"
+  },
+  "peerDependenciesMeta": {
+    "@next/playwright": {
+      "optional": true
+    },
+    "@playwright/test": {
+      "optional": true
+    },
+    "next": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@next/playwright": "^16.4.3",
+    "@playwright/test": "^1.64.1",
+    "tsup": "8.5.1",
+    "vitest": "^3.0.0"
+  },
+  "engines": {
+    "node": ">=24"
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org",
+    "provenance": true
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/SCDEVBrazil/standards-packages.git",
+    "directory": "packages/instant-nav"
+  },
+  "homepage": "https://github.com/SCDEVBrazil/standards-packages/tree/main/packages/instant-nav#readme",
+  "bugs": {
+    "url": "https://github.com/SCDEVBrazil/standards-packages/issues"
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "name": "standards-packages",
+  "private": true,
+  "description": "Public packages of the SCDEV engineering standards program",
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "npm run build --workspaces",
+    "lint": "npm run lint --workspaces",
+    "test:run": "npm run test:run --workspaces"
+  },
+  "devDependencies": {
+    "@types/node": "24.19.2",
+    "typescript": "5.9.3"
+  },
+  "engines": {
+    "node": ">=24"
+  },
+  "license": "MIT"
+}
