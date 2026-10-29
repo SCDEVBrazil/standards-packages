@@ -7,6 +7,8 @@ import { compareGeometry, defineInstantConfig, expectShellGeometryStable } from 
 /**
  * /stable: the skeleton title has the size of the real title. /jump reproduces the WMS defect: the skeleton row
  * above the title is 40 px shorter than the real header, so the title drops when the content arrives.
+ * The content arrives only when the test calls window.__release(), like instant() holding it in a real app. A
+ * timer here raced a cold Chrome start: the skeleton was gone before the check looked (publish run, 2026-10-29).
  */
 const doc = (
   headerSkeleton: number,
@@ -15,8 +17,8 @@ const doc = (
 <nav><a href="/stable">S</a><a href="/jump">J</a></nav>
 <div id="hdr" data-skeleton style="height:${headerSkeleton}px;background:#eee"></div>
 <h1 data-shell style="margin:0;height:40px">Orders</h1>
-<script>setTimeout(() => { const h = document.getElementById('hdr'); h.removeAttribute('data-skeleton');
-  h.style.height='${headerReal}px'; }, 300);</script></body></html>`;
+<script>window.__release = () => { const h = document.getElementById('hdr'); h.removeAttribute('data-skeleton');
+  h.style.height='${headerReal}px'; };</script></body></html>`;
 
 let server: Server;
 let base = '';
@@ -38,8 +40,13 @@ afterAll(async () => {
   await new Promise<void>((r) => server.close(() => r()));
 });
 
-// A static page has no Next router to pause, so the instant() scope is a plain runner here.
-const plain = <T>(_p: Page, fn: () => Promise<T>) => fn();
+// A static page has no Next router to pause, so this scope plays instant()'s part: the content is held while
+// the scope runs and released when it ends.
+const plain = async <T>(p: Page, fn: () => Promise<T>) => {
+  const r = await fn();
+  await p.evaluate(() => (window as unknown as { __release: () => void }).__release());
+  return r;
+};
 
 describe('compareGeometry', () => {
   it('is stable within the tolerance and unstable above it', () => {
