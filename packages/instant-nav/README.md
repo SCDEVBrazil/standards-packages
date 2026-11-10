@@ -16,7 +16,7 @@ npx instant-nav check
 | -------------------------- | ------------------------------------------------------------- | ---------- |
 | `check`                    | static check of `src/app` (TypeScript AST, not regex)         | chunks 3-4 |
 | `baseline [--prune]`       | the debt list that may only shrink                            | chunk 3    |
-| `measure`                  | shell vs content time on production, signed in, never writing | chunk 6    |
+| `measure`                  | shell vs content time on production, signed in, never writing (one exception: Clerk's post-sign-in cache refresh, while signing in only, listed in the report) | chunk 6    |
 | `scaffold-loading <route>` | a `loading.tsx` to review                                     | chunk 9    |
 | `stamp-verify`             | vendored reference blocks vs their stamps                     | chunk 9    |
 

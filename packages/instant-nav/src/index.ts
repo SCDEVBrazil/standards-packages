@@ -7,6 +7,12 @@ export type { Scan, Verdict } from './check';
 export type { Finding, RuleId, AreaConfig } from './types';
 export { withInstantNav, InstantNavConfigError } from './with-instant-nav';
 export type { InstantNavOptions } from './with-instant-nav';
-export { measure, loadMeasureConfig, renderMeasure } from './measure/measure';
-export type { MeasureConfig, MeasureOptions, MeasureReport, RouteResult } from './measure/measure';
+export { measure, loadMeasureConfig, renderMeasure, allowedDuringSignIn } from './measure/measure';
+export type {
+  MeasureConfig,
+  MeasureOptions,
+  MeasureReport,
+  RouteResult,
+  SignInRequest,
+} from './measure/measure';
 export { clerkSignInTicket } from './measure/clerk';
