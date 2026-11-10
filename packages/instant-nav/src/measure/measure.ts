@@ -28,6 +28,30 @@ export interface MeasureOptions {
   /** Playwright browser channel; 'chrome' uses the installed Chrome (no browser download) */
   channel?: string;
   timeoutMs?: number;
+  /** How long the sign-in may take before CANNOT MEASURE (default 60 s). */
+  signInTimeoutMs?: number;
+  /** Mints the sign-in ticket; defaults to Clerk's sign-in token API. Injectable for tests. */
+  ticketFor?: (secretKey: string, email: string) => Promise<string>;
+}
+
+/** The app-origin request Clerk's Next.js SDK sends after `setActive` on sign-in (`invalidateCacheAction`). */
+export interface SignInRequest {
+  method: string;
+  pathname: string;
+  headers: Record<string, string>;
+}
+
+/**
+ * The ONE write a probe lets through, and only while signing in: a Next.js Server Action POST to the sign-in page
+ * itself. @clerk/nextjs (Next 15/16) calls `invalidateCacheAction()` after a sign-in and waits for it before
+ * redirecting; it revalidates the router cache and changes no app data. Blocking it leaves the browser on the sign-in
+ * page forever (measured 2026-11-10 on production: the session was created, the page never left /admin/sign-in).
+ * Anything else — another path, a plain fetch POST, any write once measuring starts — stays blocked (SPEC P1.4).
+ * @returns true when the request may pass during sign-in
+ */
+export function allowedDuringSignIn(req: SignInRequest, signInPath: string): boolean {
+  const onSignIn = req.pathname === signInPath || req.pathname.startsWith(`${signInPath}/`);
+  return req.method === 'POST' && onSignIn && Boolean(req.headers['next-action']);
 }
 
 export interface RouteResult {
@@ -51,6 +75,8 @@ export interface MeasureReport {
   runs: number;
   at: string;
   completed: boolean;
+  /** Writes let through while signing in (see allowedDuringSignIn), as "METHOD /path". Empty when none. */
+  allowedDuringSignIn: string[];
   results: RouteResult[];
 }
 
@@ -81,7 +107,9 @@ export function loadMeasureConfig(root: string): MeasureConfig {
 /**
  * Drives a real browser through soft navigations and times shell vs content (SPEC P1).
  * 🔴 A PROBE NEVER WRITES (P1.4): every non-GET/HEAD request to the app's own origin is aborted and the run ends
- * with CANNOT MEASURE naming it. Clerk's hand-off goes to Clerk's own origin and is not affected.
+ * with CANNOT MEASURE naming it. Clerk's hand-off goes to Clerk's own origin and is not affected. The single
+ * exception is Clerk's post-sign-in cache refresh, let through only while signing in (allowedDuringSignIn) and listed
+ * in the report's `allowedDuringSignIn`.
  * @throws CannotMeasure when signed-in state, a selector or a link cannot be reached, or a write was attempted
  */
 export async function measure(cfg: MeasureConfig, opts: MeasureOptions): Promise<MeasureReport> {
@@ -105,16 +133,31 @@ export async function measure(cfg: MeasureConfig, opts: MeasureOptions): Promise
     runs: opts.runs,
     at: new Date().toISOString(),
     completed: false,
+    allowedDuringSignIn: [],
     results: [],
   };
+  let signingIn = false;
   try {
     const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
     let rsc = 0;
     await page.route('**/*', async (route) => {
       const req = route.request();
-      const sameOrigin = new URL(req.url()).origin === origin;
+      const url = new URL(req.url());
+      const sameOrigin = url.origin === origin;
       if (sameOrigin && !['GET', 'HEAD'].includes(req.method())) {
-        writes.push(`${req.method()} ${new URL(req.url()).pathname}`);
+        const what = `${req.method()} ${url.pathname}`;
+        if (
+          signingIn &&
+          cfg.signInPath &&
+          allowedDuringSignIn(
+            { method: req.method(), pathname: url.pathname, headers: req.headers() },
+            cfg.signInPath
+          )
+        ) {
+          report.allowedDuringSignIn.push(what);
+          return route.continue();
+        }
+        writes.push(what);
         return route.abort('blockedbyclient');
       }
       if (
@@ -137,17 +180,23 @@ export async function measure(cfg: MeasureConfig, opts: MeasureOptions): Promise
         throw new CannotMeasure(
           'signInPath is set, so --user and a Clerk secret (--env) are needed'
         );
-      const ticket = await clerkSignInTicket(opts.secretKey, opts.user);
+      const ticket = await (opts.ticketFor ?? clerkSignInTicket)(opts.secretKey, opts.user);
+      const signInTimeout = opts.signInTimeoutMs ?? 60_000;
+      signingIn = true;
       await page.goto(`${opts.base}${cfg.signInPath}?__clerk_ticket=${ticket}`, {
         waitUntil: 'domcontentloaded',
       });
       await page
-        .waitForURL((u) => !u.pathname.startsWith(cfg.signInPath!), { timeout: 60_000 })
+        .waitForURL((u) => !u.pathname.startsWith(cfg.signInPath!), { timeout: signInTimeout })
         .catch(() => {
+          const blocked = writes.length
+            ? ` — blocked during sign-in: ${[...new Set(writes)].join(', ')}`
+            : '';
           throw new CannotMeasure(
-            `still on ${cfg.signInPath} after 60 s — the sign-in ticket was not accepted`
+            `still on ${cfg.signInPath} after ${Math.round(signInTimeout / 1000)} s — the sign-in did not finish${blocked}`
           );
         });
+      signingIn = false;
     } else {
       await page.goto(`${opts.base}${cfg.routes[0]}`, { waitUntil: 'domcontentloaded' });
     }

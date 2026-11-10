@@ -1,6 +1,6 @@
 {
   "name": "@scdevbrazil/instant-nav",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Checks, measurement and Playwright helpers for the perf-instant-nav standard: every navigation paints its shell at once and streams the data behind it",
   "type": "module",
   "bin": {
